@@ -23,8 +23,9 @@ class PyVisa_Rigol_DP832A():
                 self.status = "Connected"
                 self.connected_with = 'LAN over %s' %self._ip
                 
-        except VisaIOError:
-            self.status = "Not Connected"
+        except pyvisa.VisaIOError:
+            self.status = "Disconnected"
+            self.connected_with = 'Nothing'
             print("Pyvisa is not able to connect with the device")
             
     #define a OPEN CONNECTION function
@@ -41,8 +42,9 @@ class PyVisa_Rigol_DP832A():
                     self.status = "Connected"
                     self.connected_with = 'LAN over %s' %tcp_ip
                     
-        except VisaIOError:
-            self.status = "Not Connected"
+        except pyvisa.VisaIOError:
+            self.status = "Disconnected"
+            self.connected_with = "Nothing"
             print("Pyvisa is not able to connect with the device")
             
     #define a CLOSE CONNECTION function
@@ -51,93 +53,124 @@ class PyVisa_Rigol_DP832A():
             if self.status == "Connected":
                 self.rm.close()
                 self.status = "Disconnected"
-                self.connected_with = []
+                self.connected_with = "Nothing"
                 
-        except VisaIOError:
+        except pyvisa.VisaIOError:
             self.status = "Error"
+            print("Device is not connected")
     
     #define a TOGGLE OUTPUT function
     def toggleOutput(self, chan, state):
-        self.cmd1 = ':OUTP CH%s,%s' %(chan, state)
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':OUTP CH%s,%s' %(chan, state)
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
         
     #define a SET VOLTAGE function
     def setVoltage(self, chan, voltage):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':VOLT %s' %voltage
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':VOLT %s' %voltage
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
         
     #define a SET CURRENT function
     def setCurrent(self, chan, current):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':CURR %s' %current
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':CURR %s' %current
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
         
     #define a SET OVERVOLTAGE PROTECTION function
     def setOVP(self, chan, ovp):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':VOLT:PROT %s' %ovp
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':VOLT:PROT %s' %ovp
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
 
     #define a TOGGLE OVERVOLTAGE PROTECTION function
     def toggleOVP(self, chan, state):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':VOLT:PROT:STAT %s' %state
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':VOLT:PROT:STAT %s' %state
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
 
     #define a SET OVERCURRENT PROTECTION function
     def setOCP(self, chan, ocp):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':CURR:PROT %s' %ocp
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':CURR:PROT %s' %ocp
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
 
     #define a TOGGLE OVERCURRENT PROTECTION function
     def toggleOCP(self, chan, state):
-        self.cmd1 = ':INST:NSEL %s' %chan
-        self.cmd2 = ':CURR:PROT:STAT %s' %state
-        self.psu.write(self.cmd1)
-        time.sleep(self._delay)
-        self.psu.write(self.cmd2)
-        time.sleep(self._delay)
+        if self.status == "Connected":
+            self.cmd1 = ':INST:NSEL %s' %chan
+            self.cmd2 = ':CURR:PROT:STAT %s' %state
+            self.psu.write(self.cmd1)
+            time.sleep(self._delay)
+            self.psu.write(self.cmd2)
+            time.sleep(self._delay)
+        else:
+            print("Device is not connected")
         
     #define a MEASURE VOLTAGE function
     def measVolt(self, chan):
-        self.cmd1 = ':MEAS:VOLT? CH%s' %chan
-        self.V = self.psu.query(self.cmd1)
-        self.V = float(self.V)
-        time.sleep(self._delay)
-        return self.V
+        if self.status == "Connected":
+            self.cmd1 = ':MEAS:VOLT? CH%s' %chan
+            self.V = self.psu.query(self.cmd1)
+            self.V = float(self.V)
+            time.sleep(self._delay)
+            return self.V
+        else:
+            print("Device is not connected")
     
     #define a MEASURE CURRENT function
     def measCurrent(self, chan):
-        self.cmd1 = ':MEAS:CURR? CH%s' %chan
-        self.C = self.psu.query(self.cmd1)
-        self.C = float(self.C)
-        time.sleep(self._delay)
-        return self.C
+        if self.status == "Connected":
+            self.cmd1 = ':MEAS:CURR? CH%s' %chan
+            self.C = self.psu.query(self.cmd1)
+            self.C = float(self.C)
+            time.sleep(self._delay)
+            return self.C
+        else:
+            print("Device is not connected")
 
     #define a MEASURE POWER function
     def measPower(self, chan):
-        self.cmd1 = ':MEAS:POWE? CH%s' %chan
-        self.P = self.psu.query(self.cmd1)
-        self.P = float(self.P)
-        time.sleep(self._delay)
-        return self.P
+        if self.status == "Connected":
+            self.cmd1 = ':MEAS:POWE? CH%s' %chan
+            self.P = self.psu.query(self.cmd1)
+            self.P = float(self.P)
+            time.sleep(self._delay)
+            return self.P
+        else:
+            print("Device is not connected")
 
 
