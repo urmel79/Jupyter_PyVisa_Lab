@@ -104,7 +104,10 @@ class PyVisa_Rigol_DP832A():
                 elif (chan == 3):
                     if (voltage > self.VOLTAGE_MAX_3): voltage = self.VOLTAGE_MAX_3
                 
-                self.cmd1 = ':INST:NSEL %s' %chan
+                self.chan_curr = self.psu.query(':INST:NSEL?')
+                if (self.chan_curr != chan):
+                    self.cmd1 = ':INST:NSEL %s' %chan
+                
                 self.cmd2 = ':VOLT %s' %voltage
                 self.psu.write(self.cmd1)
                 time.sleep(self._delay)
@@ -126,7 +129,10 @@ class PyVisa_Rigol_DP832A():
                 if (current < self.CURRENT_MIN): current = self.CURRENT_MIN
                 if (current > self.CURRENT_MAX): current = self.CURRENT_MAX
                 
-                self.cmd1 = ':INST:NSEL %s' %chan
+                self.chan_curr = self.psu.query(':INST:NSEL?')
+                if (self.chan_curr != chan):
+                    self.cmd1 = ':INST:NSEL %s' %chan
+                
                 self.cmd2 = ':CURR %s' %current
                 self.psu.write(self.cmd1)
                 time.sleep(self._delay)
@@ -151,7 +157,10 @@ class PyVisa_Rigol_DP832A():
                 elif (chan == 3):
                     if (ovp > self.OVP_MAX_3): ovp = self.OVP_MAX_3
                 
-                self.cmd1 = ':INST:NSEL %s' %chan
+                self.chan_curr = self.psu.query(':INST:NSEL?')
+                if (self.chan_curr != chan):
+                    self.cmd1 = ':INST:NSEL %s' %chan
+
                 self.cmd2 = ':VOLT:PROT %s' %ovp
                 self.psu.write(self.cmd1)
                 time.sleep(self._delay)
@@ -170,7 +179,10 @@ class PyVisa_Rigol_DP832A():
         if self.status == "Connected":
             if ((chan == 1) or (chan == 2) or (chan == 3)):
                 if ((state == 'ON') or (state == 'OFF')):
-                    self.cmd1 = ':INST:NSEL %s' %chan
+                    self.chan_curr = self.psu.query(':INST:NSEL?')
+                    if (self.chan_curr != chan):
+                        self.cmd1 = ':INST:NSEL %s' %chan
+                    
                     self.cmd2 = ':VOLT:PROT:STAT %s' %state
                     self.psu.write(self.cmd1)
                     time.sleep(self._delay)
@@ -195,7 +207,10 @@ class PyVisa_Rigol_DP832A():
                 if (ocp < self.OCP_MIN): ocp = self.OCP_MIN
                 if (ocp > self.OCP_MAX): ocp = self.OCP_MAX
                 
-                self.cmd1 = ':INST:NSEL %s' %chan
+                self.chan_curr = self.psu.query(':INST:NSEL?')
+                if (self.chan_curr != chan):
+                    self.cmd1 = ':INST:NSEL %s' %chan
+                
                 self.cmd2 = ':CURR:PROT %s' %ocp
                 self.psu.write(self.cmd1)
                 time.sleep(self._delay)
@@ -214,7 +229,10 @@ class PyVisa_Rigol_DP832A():
         if self.status == "Connected":
             if ((chan == 1) or (chan == 2) or (chan == 3)):
                 if ((state == 'ON') or (state == 'OFF')):
-                    self.cmd1 = ':INST:NSEL %s' %chan
+                    self.chan_curr = self.psu.query(':INST:NSEL?')
+                    if (self.chan_curr != chan):
+                        self.cmd1 = ':INST:NSEL %s' %chan
+                    
                     self.cmd2 = ':CURR:PROT:STAT %s' %state
                     self.psu.write(self.cmd1)
                     time.sleep(self._delay)
