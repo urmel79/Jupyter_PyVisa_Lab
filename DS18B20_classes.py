@@ -3,11 +3,11 @@
 """
 Created on Sa 29. Jan CET 2022
 @author: Bjoern Kasper (urmel79)
-Wrapper class to communicate with the temperature sensor DS18B20
+Wrapper classes 'DS18B20_over_USB' and 'DS18B20_over_GPIO' to communicate with the temperature sensor DS18B20
 """
 
 import hid # from packet 'hidapi'
-import time
+import time, os, subprocess
 
 class DS18B20_over_USB():
     def __init__(self, vid, pid):
@@ -16,7 +16,8 @@ class DS18B20_over_USB():
         
         try:
             if self._vid == [] or self._pid == []:
-                self.status = "No vendor or product ID provided"
+                self.status = "Error"
+                print("No vendor or product ID provided")
             elif self._vid != [] and self._pid != []:
                 self._h = hid.device()
                 self._h.open(self._vid, self._pid)
@@ -121,4 +122,68 @@ class DS18B20_over_USB():
             self.temp_dict[self.sensor_id] = self.temp
             
         return self.temp_dict
+
+####################################################
+
+class DS18B20_over_GPIO():    
+    def __init__(self):
+        # initialize internal variables
+        self._sensor_device_path = '/sys/bus/w1/devices/'
+        self._sensor_id_list = []
+        self._temperature = 0
+    
+    # define a GET SENSOR IDs function (detect the connected sensor(s))
+    def getSensorIDs(self):
+        if self._sensor_id_list == []:
+            for self._obj in os.scandir(self._sensor_device_path):
+                # sensor IDs start with '28'
+                if self._obj.is_dir() and self._obj.name.split("-")[0] == "28":
+                    self._sensor_id_list.append(self._obj.name)
+                
+        return self._sensor_id_list
+    
+    # define a GET TEMPERATURE BY ID function
+    def getTemperatureByID(self, sensor_id):
+        if not sensor_id:
+            print('No valid sensor ID provided')
+            return -1
         
+        try:
+            self._file_handle = open(self._sensor_device_path + sensor_id + '/temperature')
+            self._temperature = float(self._file_handle.read()) / 1000
+            self._file_handle.close()
+                
+            return self._temperature
+    
+        except Exception as ex:
+            print('Reading from the DS18B20 sensors raised the error: "{}"'.format(ex))
+    
+    # define a GET RESOLUTION BY ID function
+    def getResolutionByID(self, sensor_id):
+        if not sensor_id:
+            print('No valid sensor ID provided')
+            return -1
+        
+        try:
+            self._file_handle = open(self._sensor_device_path + sensor_id + '/resolution')
+            self._resolution = self._file_handle.read()
+            self._resolution = self._resolution.rstrip('\n') # remove trailing newline from resolution
+            self._file_handle.close()
+                
+            return self._resolution
+    
+        except Exception as ex:
+            print('Reading from the DS18B20 sensors raised the error: "{}"'.format(ex))
+    
+    # define a SET RESOLUTION BY ID AS SUDO function
+    def setResolutionByIDAsSudo(self, sensor_id, resolution):
+        if not sensor_id or not resolution:
+            print('No valid sensor ID or resolution provided')
+            return -1
+        
+        self._file_path = self._sensor_device_path + sensor_id + '/resolution'
+
+        self._command_str = 'sudo sh -c "echo {:d} > {:s}"'.format(resolution, self._file_path)
+        self._ret = subprocess.run([self._command_str], shell=True)
+
+        return self._ret
