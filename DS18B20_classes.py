@@ -8,6 +8,7 @@ Wrapper classes 'DS18B20_over_USB' and 'DS18B20_over_GPIO' to communicate with t
 
 import hid # from packet 'hidapi'
 import time, os, subprocess
+import pandas as pd
 
 class DS18B20_over_USB():
     def __init__(self, vid, pid):
@@ -74,7 +75,6 @@ class DS18B20_over_USB():
         
         # initialize the array with the number of elements corresponding to the number of sensors
         self.sensor_ids_array = []
-        self.sensor_ids_array = [0 for i in range(self.sensors_cnt)]
         
         for self.i in range(1, self.sensors_cnt+1, 1):
             # get current number of sensor
@@ -89,23 +89,27 @@ class DS18B20_over_USB():
                 self.sensor_id = self.sensor_id + self.hex_string + ' '
             
             self.sensor_id = self.sensor_id.rstrip(None) # remove trailing whitespace from sensor id
-            self.sensor_ids_array[self.sensor_number-1] = self.sensor_id
+            self.sensor_ids_array.append(self.sensor_id)
             
         return self.sensor_ids_array
     
-    # define a GET TEMPERATURE function for reading the values from all sensors to a dictionary
-    def getTemperature_dict(self):
+    # define a GET TEMPERATURE function for reading the values from all sensors to a dataframe
+    def getTemperature_df(self):
+        # IMPORTANT:
+        # wait some time between reading, so that the read buffer of the HID device
+        # is not drained too fast => this leads to unsteady read intervals
+        # => this function 'getTemperature_dict()' should not be called faster than 1 time per second
+        self._READ_DELAY = 0.5
+        
         self.byte_list = self._h.read(64)
-
+        
         # how many sensors do we have?
         self.sensors_cnt = self.byte_list[0]
         
-        # initialize the dictionary
-        self.temp_dict = dict()
+        # initialize the dataframe
+        self.temp_df = pd.DataFrame(columns=['timecode', 'temperature', 'sensor ID'])
         
         for self.i in range(1, self.sensors_cnt+1, 1):
-            self.byte_list = self._h.read(64)
-        
             self.sensor_id = ''
             # get sensor ID with the bytes 8 to 16 from character buffer
             for self.j in range(8, 16, 1):
@@ -118,10 +122,30 @@ class DS18B20_over_USB():
             # combine high and low byte of temperature value and convert to float
             self.temp = float(self.byte_list[5] << 8 | self.byte_list[4]) / 10
             
-            # add values to temperature dictionary
-            self.temp_dict[self.sensor_id] = self.temp
+            # add values in a row to temperature dataframe
+            self._dataframe_add_row(self.temp_df, [time.strftime('%H:%M:%S'), self.temp, self.sensor_id])
             
-        return self.temp_dict
+            # read in next dataset only if needed
+            if self.i <= self.sensors_cnt:
+                self.byte_list = self._h.read(64)
+            
+            time.sleep(self._READ_DELAY)
+            
+        return self.temp_df
+    
+    # helper function for adding rows to dataframes
+    def _dataframe_add_row(self, df=None, row=[]):
+        if (df is None):
+            return
+        
+        # Add a row
+        df.loc[-1] = row
+        
+        # Shift the index
+        df.index = df.index + 1
+        
+        # Reset the index of dataframe and avoid the old index being added as a column
+        df.reset_index(drop=True, inplace=True)
 
 ####################################################
 
