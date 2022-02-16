@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Di 15. Feb CET 2022
+Created on Tue 15. Feb CET 2022
 @author: Bjoern Kasper (urmel79)
 Wrapper class to communicate with the DMM Keysight 34465A via LAN interface and SCPI commands using PyVisa and PyVISA-py
 """
@@ -15,6 +15,9 @@ class MeasType(Enum):
     RES = "RES"
     TEMP = "TEMP"
     FREQ = "FREQ"
+    
+class MeasConfig(object):
+    pass
 
 class PyVisa_Keysight_34465A():
     def __init__(self, tcp_ip):
@@ -41,8 +44,8 @@ class PyVisa_Keysight_34465A():
                 self.status = "No IP address provided"
             elif self._ip != []:
                 self.rm = pyvisa.ResourceManager('@py')
-                self.psu_res = 'TCPIP0::%s::INSTR' %self._ip
-                self.psu = self.rm.open_resource(self.psu_res)
+                self.dmm_res = 'TCPIP0::%s::INSTR' %self._ip
+                self.dmm = self.rm.open_resource(self.dmm_res)
             
                 self.status = "Connected"
                 self.connected_with = 'LAN over %s' %self._ip
@@ -60,8 +63,8 @@ class PyVisa_Keysight_34465A():
                     self.status = "No IP address provided"
                 elif tcp_ip != []:
                     self.rm = pyvisa.ResourceManager('@py')
-                    self.psu_res = 'TCPIP0::%s::INSTR' %tcp_ip
-                    self.psu = self.rm.open_resource(self.psu_res)
+                    self.dmm_res = 'TCPIP0::%s::INSTR' %tcp_ip
+                    self.dmm = self.rm.open_resource(self.dmm_res)
 
                     self.status = "Connected"
                     self.connected_with = 'LAN over %s' %tcp_ip
@@ -84,39 +87,65 @@ class PyVisa_Keysight_34465A():
             print("Device is not connected")
     
     #define a CONFigure TEMPerature MEASUREment function
-    def confTempMeasure(self):
+    def confTempMeasure(self, measConf):
         if (self.status != "Connected"):
             print("Device is not connected")
             return -1
+
+        # check valid measurement type
+        if not isinstance(measConf, MeasConfig):
+            raise TypeError("Parameter 'measConf' must be an instance of 'MeasConfig' class")
 
         # reset device
         self.cmd = '*RST'
-        self.psu.write(self.cmd)
+        self.dmm.write(self.cmd)
         time.sleep(self._delay)
-
-        # configure measurement for 4-wire RTD (here an PT100)
-        self.cmd = 'CONF:TEMP FRTD,85,1,0.0000001'
-        self.psu.write(self.cmd)
+        
+        # select temperature measurement
+        self.cmd = "FUNC 'TEMP'"
+        self.dmm.write(self.cmd)
         time.sleep(self._delay)
+        
+        if measConf.TProbeType == 'RTD' or measConf.TProbeType == 'FRTD':
+            # configure measurement with given probe type
+            self.cmd = "TEMP:TRAN:TYPE %s" %measConf.TProbeType
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            
+            # configure R_0 for RTD or FRTD
+            self.cmd = "TEMP:TRAN:%s:RES %s" %(measConf.TProbeType, measConf.TProbeConf)
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+        
+        # use parameters for thermocouple
+        elif measConf.TProbeType == 'TC':
+            # configure measurement with thermocouple probe and given type (e.g. K, J, R)
+            self.cmd = "CONF:TEMP %s,%s" %(measConf.TProbeType, measConf.TProbeConf)
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            
+            # set to internal temperature reference
+            self.cmd = "TEMP:TRAN:TC:RJUN:TYPE INT"
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
 
         # select unit °C to be used for all temperature measurements
-        self.cmd = 'UNIT:TEMP C'
-        self.psu.write(self.cmd)
+        self.cmd = 'UNIT:TEMP %s' %measConf.TProbeUnit
+        self.dmm.write(self.cmd)
         time.sleep(self._delay)
 
     #define a GET MEASUREMENT function
-    def getMeasurement(self, measType):
+    def getMeasurement(self):
         if (self.status != "Connected"):
             print("Device is not connected")
             return -1
-
-        # # check valid measurement type
-        # if not isinstance(measType, MeasType):
-        #     raise TypeError("Parameter 'measType' must be an instance of 'MeasType' Enum")
-
-        # trigger the measurement as single shot and retrieve 1 dataset
-        self.cmd = 'MEAS:%s?' %measType.value
-        self.ret_val = self.psu.query(self.cmd)
+        
+        # retrieve 1 measurement sample and read it back
+        self.cmd = 'SAMP:COUN 1'
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        self.cmd = 'READ?'
+        self.ret_val = self.dmm.query(self.cmd)
         self.ret_val = float(self.ret_val)
         time.sleep(self._delay)
 
