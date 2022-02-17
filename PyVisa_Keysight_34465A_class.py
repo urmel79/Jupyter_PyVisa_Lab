@@ -106,6 +106,7 @@ class PyVisa_Keysight_34465A():
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
+        # use parameters for RTD (PT100, PT1000, 2-wire or 4-wire)
         if measConf.TProbeType == 'RTD' or measConf.TProbeType == 'FRTD':
             # configure measurement with given probe type
             self.cmd = "TEMP:TRAN:TYPE %s" %measConf.TProbeType
@@ -125,7 +126,20 @@ class PyVisa_Keysight_34465A():
             time.sleep(self._delay)
             
             # set to internal temperature reference
-            self.cmd = "TEMP:TRAN:TC:RJUN:TYPE INT"
+            self.cmd = "TEMP:TRAN:%s:RJUN:TYPE INT" %measConf.TProbeType
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            
+            
+        # use parameters for thermistor (NTC with 5 or 10 kOhm, 2-wire or 4-wire)
+        elif measConf.TProbeType == 'THER' or measConf.TProbeType == 'FTH':
+            # configure measurement with thermistor probe
+            self.cmd = "CONF:TEMP %s" %(measConf.TProbeType)
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            
+            # configure R_0 for thermistor probe (NTC with 5 or 10 kOhm)
+            self.cmd = "TEMP:TRAN:%s:TYPE %s" %(measConf.TProbeType, measConf.TProbeConf)
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
 
