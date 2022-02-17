@@ -12,9 +12,16 @@ from enum import Enum
 class MeasType(Enum):
     VOLT = "VOLT"
     CURR = "CURR"
-    RES = "RES"
+    RES  = "RES"
     TEMP = "TEMP"
     FREQ = "FREQ"
+    
+class TempProbeType(Enum):
+    RTD  = "RTD"  # RTD 2-wire
+    FRTD = "FRTD" # RTD 4-wire
+    TC   = "TC"   # thermocouple
+    THER = "THER" # thermistor (NTC) 2-wire
+    FTH  = "FTH"  # thermistor (NTC) 4-wire
     
 class MeasConfig(object):
     pass
@@ -22,22 +29,7 @@ class MeasConfig(object):
 class PyVisa_Keysight_34465A():
     def __init__(self, tcp_ip):
         self._ip = tcp_ip
-        self._delay = 0.01 #delay for writing the commands in seconds (10 ms)
-        
-        # # define voltage and current limits as constants
-        # self.VOLTAGE_MIN     = 0.0
-        # self.VOLTAGE_MAX_1_2 = 32.0  # max 32 V
-        # self.VOLTAGE_MAX_3   = 5.3   # max 5.3 V
-
-        # self.CURRENT_MIN     = 0.0
-        # self.CURRENT_MAX     = 3.2   # max 3.2 A
-
-        # self.OVP_MIN         = 0.001 # min 0.001 V
-        # self.OVP_MAX_1_2     = 33.0  # max 33 V
-        # self.OVP_MAX_3       = 5.5   # max 5.5 V
-
-        # self.OCP_MIN         = 0.001 # min 0.001 A
-        # self.OCP_MAX         = 3.3   # max 3.3 A
+        self._delay = 0.01 # delay for writing the commands in seconds (10 ms)
         
         try:
             if self._ip == []:
@@ -55,7 +47,7 @@ class PyVisa_Keysight_34465A():
             self.connected_with = 'Nothing'
             print("Pyvisa is not able to connect with the device")
     
-    #define a OPEN CONNECTION function
+    # define a OPEN CONNECTION function
     def openConnection(self, tcp_ip):
         try:
             if self.status == "Disconnected":
@@ -74,7 +66,7 @@ class PyVisa_Keysight_34465A():
             self.connected_with = "Nothing"
             print("Pyvisa is not able to connect with the device")
     
-    #define a CLOSE CONNECTION function
+    # define a CLOSE CONNECTION function
     def closeConnection(self):
         try:
             if self.status == "Connected":
@@ -86,7 +78,7 @@ class PyVisa_Keysight_34465A():
             self.status = "Error"
             print("Device is not connected")
     
-    #define a CONFigure TEMPerature MEASUREment function
+    # define a CONFigure TEMPerature MEASUREment function
     def confTempMeasure(self, measConf):
         if (self.status != "Connected"):
             print("Device is not connected")
@@ -107,39 +99,39 @@ class PyVisa_Keysight_34465A():
         time.sleep(self._delay)
         
         # use parameters for RTD (PT100, PT1000, 2-wire or 4-wire)
-        if measConf.TProbeType == 'RTD' or measConf.TProbeType == 'FRTD':
+        if measConf.TProbeType.value == 'RTD' or measConf.TProbeType.value == 'FRTD':
             # configure measurement with given probe type
-            self.cmd = "TEMP:TRAN:TYPE %s" %measConf.TProbeType
+            self.cmd = "TEMP:TRAN:TYPE %s" %measConf.TProbeType.value
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
             
             # configure R_0 for RTD or FRTD
-            self.cmd = "TEMP:TRAN:%s:RES %s" %(measConf.TProbeType, measConf.TProbeConf)
+            self.cmd = "TEMP:TRAN:%s:RES %s" %(measConf.TProbeType.value, measConf.TProbeConf)
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
         
         # use parameters for thermocouple
-        elif measConf.TProbeType == 'TC':
+        elif measConf.TProbeType.value == 'TC':
             # configure measurement with thermocouple probe and given type (e.g. K, J, R)
-            self.cmd = "CONF:TEMP %s,%s" %(measConf.TProbeType, measConf.TProbeConf)
+            self.cmd = "CONF:TEMP %s,%s" %(measConf.TProbeType.value, measConf.TProbeConf)
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
             
             # set to internal temperature reference
-            self.cmd = "TEMP:TRAN:%s:RJUN:TYPE INT" %measConf.TProbeType
+            self.cmd = "TEMP:TRAN:%s:RJUN:TYPE INT" %measConf.TProbeType.value
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
             
             
         # use parameters for thermistor (NTC with 5 or 10 kOhm, 2-wire or 4-wire)
-        elif measConf.TProbeType == 'THER' or measConf.TProbeType == 'FTH':
+        elif measConf.TProbeType.value == 'THER' or measConf.TProbeType.value == 'FTH':
             # configure measurement with thermistor probe
-            self.cmd = "CONF:TEMP %s" %(measConf.TProbeType)
+            self.cmd = "CONF:TEMP %s" %(measConf.TProbeType.value)
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
             
             # configure R_0 for thermistor probe (NTC with 5 or 10 kOhm)
-            self.cmd = "TEMP:TRAN:%s:TYPE %s" %(measConf.TProbeType, measConf.TProbeConf)
+            self.cmd = "TEMP:TRAN:%s:TYPE %s" %(measConf.TProbeType.value, measConf.TProbeConf)
             self.dmm.write(self.cmd)
             time.sleep(self._delay)
 
@@ -148,7 +140,7 @@ class PyVisa_Keysight_34465A():
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
 
-    #define a GET MEASUREMENT function
+    # define a GET MEASUREMENT function
     def getMeasurement(self):
         if (self.status != "Connected"):
             print("Device is not connected")
