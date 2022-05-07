@@ -84,6 +84,7 @@ class Benning_MM12_Serial():
 
         return self.ascii_str
     
+    # define an internal function to convert hex strings to integers
     def _func_convert_hex2int(self, hex_str):
         # convert hex string to bytes object
         self.bytes_object = bytes.fromhex(hex_str)
@@ -92,7 +93,8 @@ class Benning_MM12_Serial():
         self.out_int = int.from_bytes(self.bytes_object, 'little', signed=False)
 
         return self.out_int
-            
+    
+    # define a function to retrieve the device infos and return a dictionary
     def getDeviceInfos(self):
         # flush input buffer, discarding all its contents
         self._serial.reset_input_buffer()
