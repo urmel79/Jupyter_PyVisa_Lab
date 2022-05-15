@@ -12,8 +12,8 @@ import time
 class Benning_MM12_Serial():
     def __init__(self, port):
         self._port = port
-        self.MM12_READ_INFOS   = b'\x55\x55\x00\x00\xaa'
-        self.MM12_READ_DISPLAY = b'\x55\x55\x01\x00\xab'
+        self.MM12_READ_INFOS   = '55 55 00 00 AA'
+        self.MM12_READ_DISPLAY = '55 55 01 00 AB'
         
         # function codes of Benning MM12 (table 6 in communication datasheet)
         # the codes 0x32 ... 0x3E have not been included at the moment, because they are rarely used
@@ -232,6 +232,15 @@ class Benning_MM12_Serial():
             self.status = "Error"
             print("Disconnecting from the device raised the error: '{}'".format(ex))
 
+    # define an internal function to convert byte strings to byte
+    def _func_convert_byteString_2_bytes(self, str_in):
+        # remove whitespaces separating the hex bytes
+        self.hex_str = str_in.replace(" ", "")
+
+        self.hex_bytes = bytes.fromhex(self.hex_str)
+
+        return self.hex_bytes
+            
     # define an internal function to convert hex strings to human readable ones
     def _func_convert_hex_str_human_readable(self, str_in):
         self.hex_string = str_in.hex()
@@ -274,13 +283,26 @@ class Benning_MM12_Serial():
         # flush input buffer, discarding all its contents
         self._serial.reset_input_buffer()
 
-        self._serial.write(self.MM12_READ_INFOS)
+        # convert byte string of command to bytes
+        self.hex_bytes = self._func_convert_byteString_2_bytes(self.MM12_READ_INFOS)
+        self._serial.write(self.hex_bytes)
         
+        # read back the 57 byte response of the MM12
         self.hex_string = self._serial.read(57)
         self.hex_bytes = self.hex_string.hex()
         
+        ###
+        # test for valid response
+        self.cmd_response = self.hex_bytes[0:8]
+        self.cmd_response_int = int(self.cmd_response, 16)
+        
+        if self.cmd_response_int != 0x55550034:
+            print('Reading failed!')
+            return {}
+        
         self.dict_dmm_infos = {}
         
+        ###
         # bytes 0..31 from data payload represent the model name
         self.model_name_hex = self.hex_bytes[8:72]
 
@@ -288,6 +310,7 @@ class Benning_MM12_Serial():
 
         self.dict_dmm_infos['model'] = ('Model name', self.model_name_str)
         
+        ###
         # bytes 32..47 from data payload represent the serial number
         self.serial_number_hex = self.hex_bytes[72:104]
 
@@ -295,6 +318,7 @@ class Benning_MM12_Serial():
 
         self.dict_dmm_infos['serial'] = ('Serial number', self.serial_number_str)
         
+        ###
         # bytes 48..49 from data payload represent the model ID
         self.model_ID_hex = self.hex_bytes[104:108]
 
@@ -302,12 +326,13 @@ class Benning_MM12_Serial():
 
         self.dict_dmm_infos['id'] = ('Model ID', self.model_ID_int)
         
+        ###
         # bytes 50..51 from data payload represent the firmware version
         self.firmware_version_hex = self.hex_bytes[108:112]
 
         self.firmware_version_int = self._func_convert_hex2int(self.firmware_version_hex)
 
-        self.dict_dmm_infos['fw'] = ('Firmware version', self.firmware_version_int/100)
+        self.dict_dmm_infos['fw'] = ('FW version', self.firmware_version_int/100)
         
         return self.dict_dmm_infos
 
@@ -315,11 +340,23 @@ class Benning_MM12_Serial():
     def getMeasurement_baseUnits(self):
         # flush input buffer, discarding all its contents
         self._serial.reset_input_buffer()
-
-        self._serial.write(self.MM12_READ_DISPLAY)
         
+        # convert byte string of command to bytes
+        self.hex_bytes = self._func_convert_byteString_2_bytes(self.MM12_READ_DISPLAY)
+        self._serial.write(self.hex_bytes)
+        
+        # read back the 17 byte response of the MM12
         self.hex_string = self._serial.read(17)
         self.hex_bytes = self.hex_string.hex()
+        
+        ###
+        # test for valid response
+        self.cmd_response = self.hex_bytes[0:8]
+        self.cmd_response_int = int(self.cmd_response, 16)
+        
+        if self.cmd_response_int != 0x5555010C:
+            print('Reading failed!')
+            return {}
         
         self.dict_dmm_measurement = {}
         
@@ -429,10 +466,22 @@ class Benning_MM12_Serial():
         # flush input buffer, discarding all its contents
         self._serial.reset_input_buffer()
 
-        self._serial.write(self.MM12_READ_DISPLAY)
+        # convert byte string of command to bytes
+        self.hex_bytes = self._func_convert_byteString_2_bytes(self.MM12_READ_DISPLAY)
+        self._serial.write(self.hex_bytes)
         
+        # read back the 17 byte response of the MM12
         self.hex_string = self._serial.read(17)
         self.hex_bytes = self.hex_string.hex()
+        
+        ###
+        # test for valid response
+        self.cmd_response = self.hex_bytes[0:8]
+        self.cmd_response_int = int(self.cmd_response, 16)
+        
+        if self.cmd_response_int != 0x5555010C:
+            print('Reading failed!')
+            return {}
         
         self.dict_dmm_measurement = {}
         
