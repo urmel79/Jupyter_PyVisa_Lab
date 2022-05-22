@@ -8,44 +8,11 @@ Wrapper class to communicate with the DMM Keysight 34465A via LAN interface and 
 import pyvisa
 import time, sys
 
-###
-### class 'ConfigSwitcher' is to be used possibly later
-###
-# class ConfigSwitcher:
-#     """ Class for saving the configuration parameters for the measuring functions 
-#         and methods for cycling between the configurations """
-
-#     def __init__(self, configs_dict):
-#         self._configs = configs_dict
-#         self._index = 0
-#         self._key = ""
-#         self._value = ""
-
-#     def get_config(self):
-#         self._value = self._configs[list(sorted(self._configs))[self._index]]
-#         return self._value
-
-#     def set_config(self, conf_str):
-#         self._index = list(self._configs.keys()).index(conf_str)
-
-#     def get_key(self):
-#         self.get_config()
-#         self._key = list(self._configs.keys())[list(self._configs.values()).index(self._value)]
-#         return self._key
-    
-#     def get_all_keys(self):
-#         return list(self._configs.keys())
-
-#     def cycle_configs(self):
-#         self._index += 1
-
-#         if self._index >= len(self._configs):
-#             self._index = 0
-
 class PyVisa_Keysight_34465A():
     def __init__(self, tcp_ip):
         self._ip = tcp_ip
         self._delay = 0.01 # delay for writing the commands in seconds (10 ms)
+        self._measurement_configured = False
 
         self.temp_configs_dict = {  "00_PT100_2WIRE":   ("RTD",  100),         # PT100,   100 Ohm, 2-wire
                                     "01_PT100_4WIRE":   ("FRTD", 100),         # PT100,   100 Ohm, 4-wire
@@ -69,6 +36,22 @@ class PyVisa_Keysight_34465A():
                                     "19_TC_R_FIX":      ("TC",   "R",  "FIX")  # thermocouple, type R, external reference temperature
                                     }
         
+        self.res_configs_dict = {   "00_2WIRE": "RES", # resistor 2-wire
+                                    "01_4WIRE": "FRES" # resistor, 4-wire
+                                    }
+        
+        self.volt_configs_dict = {  "00_AC": "AC", # voltage AC
+                                    "01_DC": "DC"  # voltage DC
+                                    }
+        
+        self.curr_configs_dict = {  "00_AC": "AC", # current AC
+                                    "01_DC": "DC"  # current DC
+                                    }
+        
+        self.cap_cont_configs_dict = { "00_CAP": "CAP",  # capacitance
+                                       "01_CONT": "CONT" # continuity
+                                       }
+        
         try:
             if self._ip == []:
                 self.status = "No IP address provided"
@@ -79,6 +62,8 @@ class PyVisa_Keysight_34465A():
             
                 self.status = "Connected"
                 self.connected_with = 'LAN over %s' %self._ip
+
+            self._measurement_configured = False
                 
         except pyvisa.VisaIOError:
             self.status = "Disconnected"
@@ -98,6 +83,8 @@ class PyVisa_Keysight_34465A():
 
                     self.status = "Connected"
                     self.connected_with = 'LAN over %s' %tcp_ip
+                    
+            self._measurement_configured = False
                     
         except pyvisa.VisaIOError:
             self.status = "Disconnected"
@@ -120,10 +107,12 @@ class PyVisa_Keysight_34465A():
     def confTempMeasure(self, measConf_str, ref_temp=20.0):
         if (self.status != "Connected"):
             print("Device is not connected")
+            self._measurement_configured = False
             return -1
 
         # check valid measurement type
         if measConf_str not in self.temp_configs_dict:
+            self._measurement_configured = False
             raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
 
         # reset device
@@ -180,14 +169,127 @@ class PyVisa_Keysight_34465A():
 
         # select unit °C to be used for all temperature measurements
         self.cmd = 'UNIT:TEMP C'
-        # self.cmd = 'UNIT:TEMP %s' %measConf.TProbeUnit
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
+        
+        self._measurement_configured = True
 
+    # define a CONFigure RESistor MEASUREment function
+    def confResMeasure(self, measConf_str):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            self._measurement_configured = False
+            return -1
+
+        # check valid measurement type
+        if measConf_str not in self.res_configs_dict:
+            self._measurement_configured = False
+            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
+            
+        # reset device
+        self.cmd = '*RST'
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self.cmd = "CONF:%s AUTO" %self.res_configs_dict[measConf_str]
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self._measurement_configured = True
+        
+    # define a CONFigure VOLTage MEASUREment function
+    def confVoltMeasure(self, measConf_str):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            self._measurement_configured = False
+            return -1
+
+        # check valid measurement type
+        if measConf_str not in self.volt_configs_dict:
+            self._measurement_configured = False
+            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
+            
+        # reset device
+        self.cmd = '*RST'
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self.cmd = "CONF:VOLT:%s AUTO" %self.volt_configs_dict[measConf_str]
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self._measurement_configured = True
+        
+    # define a CONFigure CURRent MEASUREment function
+    def confCurrMeasure(self, measConf_str):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            self._measurement_configured = False
+            return -1
+
+        # check valid measurement type
+        if measConf_str not in self.curr_configs_dict:
+            self._measurement_configured = False
+            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
+            
+        # reset device
+        self.cmd = '*RST'
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self.cmd = "CONF:CURR:%s AUTO" %self.curr_configs_dict[measConf_str]
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self._measurement_configured = True
+        
+    # define a CONFigure CAPacitancy and CONTinuity MEASUREment function
+    def confCapContMeasure(self, measConf_str):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            self._measurement_configured = False
+            return -1
+
+        # check valid measurement type
+        if measConf_str not in self.cap_cont_configs_dict:
+            self._measurement_configured = False
+            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
+            
+        # reset device
+        self.cmd = '*RST'
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self.cmd = "CONF:%s" %self.cap_cont_configs_dict[measConf_str]
+        self.dmm.write(self.cmd)
+        time.sleep(self._delay)
+        
+        self._measurement_configured = True
+        
+    # define a GET CONFIG function
+    def getConfig(self):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            return -1
+        
+        if not self._measurement_configured:
+            print("Measurement is not configured")
+            return -1
+        
+        # get current measurement configuration
+        self.cmd = 'CONF?'
+        self.ret_val = self.dmm.query(self.cmd)
+        
+        return self.ret_val
+        
     # define a GET MEASUREMENT function
     def getMeasurement(self):
         if (self.status != "Connected"):
             print("Device is not connected")
+            return -1
+        
+        if not self._measurement_configured:
+            print("Measurement is not configured")
             return -1
         
         # retrieve 1 measurement sample and read it back
