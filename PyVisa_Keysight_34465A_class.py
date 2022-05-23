@@ -13,7 +13,8 @@ class PyVisa_Keysight_34465A():
         self._ip = tcp_ip
         self._delay = 0.01 # delay for writing the commands in seconds (10 ms)
         self._measurement_configured = False
-
+        self._measType = "DC"
+        
         self.temp_configs_dict = {  "00_PT100_2WIRE":   ("RTD",  100),         # PT100,   100 Ohm, 2-wire
                                     "01_PT100_4WIRE":   ("FRTD", 100),         # PT100,   100 Ohm, 4-wire
                                     "02_PT1000_2WIRE":  ("RTD",  1000),        # PT1000, 1000 Ohm, 2-wire
@@ -64,6 +65,7 @@ class PyVisa_Keysight_34465A():
                 self.connected_with = 'LAN over %s' %self._ip
 
             self._measurement_configured = False
+            self._measType = "DC"
                 
         except pyvisa.VisaIOError:
             self.status = "Disconnected"
@@ -85,6 +87,7 @@ class PyVisa_Keysight_34465A():
                     self.connected_with = 'LAN over %s' %tcp_ip
                     
             self._measurement_configured = False
+            self._measType = "DC"
                     
         except pyvisa.VisaIOError:
             self.status = "Disconnected"
@@ -173,6 +176,10 @@ class PyVisa_Keysight_34465A():
         time.sleep(self._delay)
         
         self._measurement_configured = True
+        
+        self._dict_dmm_measurement = {}
+        self._dict_dmm_measurement['temperature_value'] = 0
+        self._dict_dmm_measurement['temperature_unit'] = '°C'
 
     # define a CONFigure RESistor MEASUREment function
     def confResMeasure(self, measConf_str):
@@ -197,16 +204,22 @@ class PyVisa_Keysight_34465A():
         
         self._measurement_configured = True
         
+        self._dict_dmm_measurement = {}
+        self._dict_dmm_measurement['resistance_value'] = 0
+        self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
+        
     # define a CONFigure VOLTage MEASUREment function
     def confVoltMeasure(self, measConf_str):
         if (self.status != "Connected"):
             print("Device is not connected")
             self._measurement_configured = False
+            self._measType = "DC"
             return -1
 
         # check valid measurement type
         if measConf_str not in self.volt_configs_dict:
             self._measurement_configured = False
+            self._measType = "DC"
             raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
             
         # reset device
@@ -218,18 +231,35 @@ class PyVisa_Keysight_34465A():
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
+        if measConf_str == "00_AC":
+            self.cmd = "VOLT:AC:SEC 'FREQ'"
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            self._measType = "AC"
+        
         self._measurement_configured = True
+        
+        self._dict_dmm_measurement = {}
+        self._dict_dmm_measurement['voltage_value'] = 0
+        self._dict_dmm_measurement['voltage_unit'] = 'V DC'
+        
+        if self._measType == "AC":
+            self._dict_dmm_measurement['voltage_unit'] = 'V AC'
+            self._dict_dmm_measurement['frequency_value'] = 0
+            self._dict_dmm_measurement['frequency_unit'] = 'Hz'
         
     # define a CONFigure CURRent MEASUREment function
     def confCurrMeasure(self, measConf_str):
         if (self.status != "Connected"):
             print("Device is not connected")
             self._measurement_configured = False
+            self._measType = "DC"
             return -1
 
         # check valid measurement type
         if measConf_str not in self.curr_configs_dict:
             self._measurement_configured = False
+            self._measType = "DC"
             raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
             
         # reset device
@@ -241,7 +271,22 @@ class PyVisa_Keysight_34465A():
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
+        if measConf_str == "00_AC":
+            self.cmd = "CURR:AC:SEC 'FREQ'"
+            self.dmm.write(self.cmd)
+            time.sleep(self._delay)
+            self._measType = "AC"
+        
         self._measurement_configured = True
+        
+        self._dict_dmm_measurement = {}
+        self._dict_dmm_measurement['current_value'] = 0
+        self._dict_dmm_measurement['current_unit'] = 'A DC'
+        
+        if self._measType == "AC":
+            self._dict_dmm_measurement['current_unit'] = 'A AC'
+            self._dict_dmm_measurement['frequency_value'] = 0
+            self._dict_dmm_measurement['frequency_unit'] = 'Hz'
         
     # define a CONFigure CAPacitancy and CONTinuity MEASUREment function
     def confCapContMeasure(self, measConf_str):
@@ -265,6 +310,14 @@ class PyVisa_Keysight_34465A():
         time.sleep(self._delay)
         
         self._measurement_configured = True
+        
+        self._dict_dmm_measurement = {}
+        if measConf_str == '00_CAP':
+            self._dict_dmm_measurement['capacitancy_value'] = 0
+            self._dict_dmm_measurement['capacitancy_unit'] = 'F'
+        elif measConf_str == '01_CONT':
+            self._dict_dmm_measurement['continuity_value'] = 0
+            self._dict_dmm_measurement['continuity_unit'] = 'Ohm'
         
     # define a GET CONFIG function
     def getConfig(self):
@@ -291,14 +344,29 @@ class PyVisa_Keysight_34465A():
         if not self._measurement_configured:
             print("Measurement is not configured")
             return -1
-        
+            
         # retrieve 1 measurement sample and read it back
         self.cmd = 'SAMP:COUN 1'
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
+        
         self.cmd = 'READ?'
         self.ret_val = self.dmm.query(self.cmd)
         self.ret_val = float(self.ret_val)
-        time.sleep(self._delay)
+        #time.sleep(self._delay)
+        
+        # write value at the primary value key
+        self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
+        self._dict_dmm_measurement[self.prim_val_key] = self.ret_val
+        
+        if self._measType == "AC":
+            # retrieve data from secondary display
+            self.cmd = 'DATA2?'
+            # wait some time before reading data from secondary display
+            time.sleep(0.15)
+            self.ret_val = self.dmm.query(self.cmd)
+            self.ret_val = float(self.ret_val)
+            time.sleep(self._delay)
+            self._dict_dmm_measurement['frequency_value'] = self.ret_val
 
-        return self.ret_val
+        return self._dict_dmm_measurement
