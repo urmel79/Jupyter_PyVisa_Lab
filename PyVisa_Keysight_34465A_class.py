@@ -62,7 +62,8 @@ class PyVisa_Keysight_34465A():
                 self.dmm = self.rm.open_resource(self.dmm_res)
             
                 self.status = "Connected"
-                self.connected_with = 'LAN over %s' %self._ip
+                self.list_dev_infos = self.getDevInfos()
+                self.connected_with = '%s %s over LAN on %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip)
 
             self._measurement_configured = False
             self._measType = "DC"
@@ -84,7 +85,8 @@ class PyVisa_Keysight_34465A():
                     self.dmm = self.rm.open_resource(self.dmm_res)
 
                     self.status = "Connected"
-                    self.connected_with = 'LAN over %s' %tcp_ip
+                    self.list_dev_infos = self.getDevInfos()
+                    self.connected_with = '%s %s over LAN on %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip)
                     
             self._measurement_configured = False
             self._measType = "DC"
@@ -105,6 +107,23 @@ class PyVisa_Keysight_34465A():
         except pyvisa.VisaIOError:
             self.status = "Error"
             print("Device is not connected")
+            
+    # define a GET DEVice INFOrmation function
+    def getDevInfos(self):
+        if (self.status != "Connected"):
+            print("Device is not connected")
+            self._measurement_configured = False
+            return -1
+        
+        # get current measurement configuration
+        self.cmd = '*IDN?'
+        self.ret_val = self.dmm.query(self.cmd)
+        # strip whitespaces and newline characters from string
+        self.ret_val = self.ret_val.strip()
+        # split string into list
+        self.ret_list = self.ret_val.split(',')
+        
+        return self.ret_list
     
     # define a CONFigure TEMPerature MEASUREment function
     def confTempMeasure(self, measConf_str, ref_temp=20.0):
