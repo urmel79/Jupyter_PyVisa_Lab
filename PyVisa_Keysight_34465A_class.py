@@ -56,7 +56,7 @@ class PyVisa_Keysight_34465A():
         try:
             if self._ip == []:
                 self.status = "No IP address provided"
-            elif self._ip != []:
+            else:
                 self.rm = pyvisa.ResourceManager('@py')
                 self.dmm_res = 'TCPIP0::%s::INSTR' %self._ip
                 self.dmm = self.rm.open_resource(self.dmm_res)
@@ -79,7 +79,7 @@ class PyVisa_Keysight_34465A():
             if self.status == "Disconnected":
                 if tcp_ip == []:
                     self.status = "No IP address provided"
-                elif tcp_ip != []:
+                else:
                     self.rm = pyvisa.ResourceManager('@py')
                     self.dmm_res = 'TCPIP0::%s::INSTR' %tcp_ip
                     self.dmm = self.rm.open_resource(self.dmm_res)
