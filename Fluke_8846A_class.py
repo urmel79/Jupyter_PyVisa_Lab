@@ -12,75 +12,53 @@ class Fluke_8846A():
     def __init__(self, tcp_ip, tcp_port):
         self._ip = tcp_ip
         self._port = tcp_port
-        self._delay = 0.01 # delay for writing the commands in seconds (10 ms)
+        self._delay = 0.05 # delay for writing the commands in seconds (50 ms)
+        self._sock_timeout = 0.5 # timeout for reading TCP sockets in [s]
         self._measurement_configured = False
-        self._measType = "DC"
+        self._secondary_display = None
         
-        self.temp_configs_dict = {  "00_PT100_2WIRE":   ("RTD",  100),         # PT100,   100 Ohm, 2-wire
-                                    "01_PT100_4WIRE":   ("FRTD", 100),         # PT100,   100 Ohm, 4-wire
-                                    "02_PT1000_2WIRE":  ("RTD",  1000),        # PT1000, 1000 Ohm, 2-wire
-                                    "03_PT1000_4WIRE":  ("FRTD", 1000),        # PT1000, 1000 Ohm, 4-wire
-                                    "04_NTC_5K_2WIRE":  ("THER", 5000),        # thermistor (NTC),  5 kOhm, 2-wire
-                                    "05_NTC_5K_4WIRE":  ("FTH",  5000),        # thermistor (NTC),  5 kOhm, 4-wire
-                                    "06_NTC_10K_2WIRE": ("THER", 10000),       # thermistor (NTC), 10 kOhm, 2-wire
-                                    "07_NTC_10K_4WIRE": ("FTH",  10000),       # thermistor (NTC), 10 kOhm, 4-wire
-                                    "08_TC_J_INT":      ("TC",   "J",  "INT"), # thermocouple, type J, internal reference temperature
-                                    "09_TC_K_INT":      ("TC",   "K",  "INT"), # thermocouple, type K, internal reference temperature
-                                    "10_TC_E_INT":      ("TC",   "E",  "INT"), # thermocouple, type E, internal reference temperature
-                                    "11_TC_T_INT":      ("TC",   "T",  "INT"), # thermocouple, type T, internal reference temperature
-                                    "12_TC_N_INT":      ("TC",   "N",  "INT"), # thermocouple, type N, internal reference temperature
-                                    "13_TC_R_INT":      ("TC",   "R",  "INT"), # thermocouple, type R, internal reference temperature
-                                    "14_TC_J_FIX":      ("TC",   "J",  "FIX"), # thermocouple, type J, external reference temperature
-                                    "15_TC_K_FIX":      ("TC",   "K",  "FIX"), # thermocouple, type K, external reference temperature
-                                    "16_TC_E_FIX":      ("TC",   "E",  "FIX"), # thermocouple, type E, external reference temperature
-                                    "17_TC_T_FIX":      ("TC",   "T",  "FIX"), # thermocouple, type T, external reference temperature
-                                    "18_TC_N_FIX":      ("TC",   "N",  "FIX"), # thermocouple, type N, external reference temperature
-                                    "19_TC_R_FIX":      ("TC",   "R",  "FIX")  # thermocouple, type R, external reference temperature
-                                    }
-        
-        self.res_configs_dict = {   "00_2WIRE": "RES", # resistor 2-wire
-                                    "01_4WIRE": "FRES" # resistor, 4-wire
-                                    }
-        
-        self.volt_configs_dict = {  "00_AC": "AC", # voltage AC
-                                    "01_DC": "DC"  # voltage DC
-                                    }
-        
-        self.curr_configs_dict = {  "00_AC": "AC", # current AC
-                                    "01_DC": "DC"  # current DC
-                                    }
-        
-        self.cap_cont_configs_dict = { "00_CAP": "CAP",  # capacitance
-                                       "01_CONT": "CONT" # continuity
-                                       }
+        self.conf_measurement_dict = {  "00_RES":     "CONF:RES DEF",       # resistor 2-wire
+                                        "01_FRES":    "CONF:FRES DEF",      # resistor 4-wire
+                                        "02_RTD":     'FUNC1 "TEMP:RTD"; FUNC2 "RES"',   # PT100, 2-wire, resistor 2-wire (secondary display)
+                                        "03_FRTD":    'FUNC1 "TEMP:FRTD"; FUNC2 "FRES"', # PT100, 4-wire, resistor 4-wire (secondary display)
+                                        "04_VOLT_AC": 'FUNC1 "VOLT:AC"; FUNC2 "FREQ"',   # voltage AC, frequency (secondary display)
+                                        "05_VOLT_DC": "CONF:VOLT:DC DEF",   # voltage DC
+                                        "06_CURR_AC": 'FUNC1 "CURR:AC"; FUNC2 "FREQ"',   # current AC, frequency (secondary display)
+                                        "07_CURR_DC": "CONF:CURR:DC DEF",   # current DC
+                                        "08_CONT":    "CONF:CONT",          # continuity
+                                        "09_CAP":     "CONF:CAP DEF"        # capacitance
+                                     }
         
         try:
             if self._ip == [] or self._port == []:
                 self.status = "No IP address or port provided"
             else:
-                #self.rm = pyvisa.ResourceManager('@py')
-                #self.dmm_res = 'TCPIP0::%s::3490::SOCKET' %self._ip
-                #self.dmm = self.rm.open_resource(self.dmm_res)
-                
                 self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.dmm_sock.connect((self._ip, self._port))
+                
+                # set timeout on blocking socket operations in [s]
+                self.dmm_sock.settimeout(self._sock_timeout)
             
                 self.status = "Connected"
-                #self.list_dev_infos = self.getDevInfos()
-                #self.connected_with = '%s %s over LAN on %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip)
+                self.list_dev_infos = self.getDevInfos()
+                self.connected_with = '%s %s over LAN on %s, port %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip, self._port)
 
             self._measurement_configured = False
-            self._measType = "DC"
             
         except Exception as e:
             self.status = "Disconnected"
             self.connected_with = 'Nothing'
-            print("Something's wrong with %s:%d. Exception is %s" % (self._ip, self._port, e))
+            print("Something's went wrong while opening %s:%d. Exception is %s" % (self._ip, self._port, e))
     
-        #except pyvisa.VisaIOError:
-        #    self.status = "Disconnected"
-        #    self.connected_with = 'Nothing'
-        #    print("Pyvisa is not able to connect with the device")
+    # define an internal CLEAR INPUT BUFFER function
+    def _clearInputBuffer(self):
+        try:
+            # read answer with buffer size of 64 bytes and drop it
+            while self.dmm_sock.recv(64):
+                #time.sleep(self._delay)
+                pass
+        except:
+            pass
     
     # define a OPEN CONNECTION function
     def openConnection(self, tcp_ip, tcp_port):
@@ -89,36 +67,34 @@ class Fluke_8846A():
                 if tcp_ip == [] or tcp_port == []:
                     self.status = "No IP address or port provided"
                 else:
-                    #self.rm = pyvisa.ResourceManager('@py')
-                    #self.dmm_res = 'TCPIP0::%s::INSTR' %tcp_ip
-                    #self.dmm = self.rm.open_resource(self.dmm_res)
-                    
                     self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     self.dmm_sock.connect((tcp_ip, tcp_port))
+                    
+                    # set timeout on blocking socket operations in [s]
+                    self.dmm_sock.settimeout(self._sock_timeout)
 
                     self.status = "Connected"
-                    #self.list_dev_infos = self.getDevInfos()
-                    #self.connected_with = '%s %s over LAN on %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip)
+                    self.list_dev_infos = self.getDevInfos()
+                    self.connected_with = '%s %s over LAN on %s, port %s' %(self.list_dev_infos[0], self.list_dev_infos[1], self._ip, self._port)
                     
             self._measurement_configured = False
-            self._measType = "DC"
                     
         except Exception as e:
             self.status = "Disconnected"
             self.connected_with = 'Nothing'
-            print("Something's wrong with %s:%d. Exception is %s" % (tcp_ip, tcp_port, e))
+            print("Something's went wrong while opening %s:%d. Exception is %s" % (tcp_ip, tcp_port, e))
     
     # define a CLOSE CONNECTION function
     def closeConnection(self):
         try:
             if self.status == "Connected":
-                self.rm.close()
+                self.dmm_sock.close()
                 self.status = "Disconnected"
                 self.connected_with = "Nothing"
                 
-        except pyvisa.VisaIOError:
+        except Exception as e:
             self.status = "Error"
-            print("Device is not connected")
+            print("Something's went wrong while closing %s:%d. Exception is %s" % (self._ip, self._port, e))
             
     # define a GET DEVice INFOrmation function
     def getDevInfos(self):
@@ -127,228 +103,106 @@ class Fluke_8846A():
             self._measurement_configured = False
             return -1
         
+        # clear input buffer before reading
+        self._clearInputBuffer()
+        
         # get current measurement configuration
-        self.cmd = '*IDN?'
-        self.ret_val = self.dmm.query(self.cmd)
+        self.cmd = '*IDN?\n'
+        self.dmm_sock.sendall(self.cmd.encode('utf-8'))
+        time.sleep(self._delay)
+        
+        # read answer with buffer size of 64 bytes
+        self.ret_val = self.dmm_sock.recv(64)
         # strip whitespaces and newline characters from string
-        self.ret_val = self.ret_val.strip()
+        self.ret_val = self.ret_val.decode().strip()
         # split string into list
         self.ret_list = self.ret_val.split(',')
         
         return self.ret_list
-    
-    # define a CONFigure TEMPerature MEASUREment function
-    def confTempMeasure(self, measConf_str, ref_temp=20.0):
+        
+    # define a CONFigure MEASUREMENT function
+    def confMeasurement(self, measConf_str):
         if (self.status != "Connected"):
             print("Device is not connected")
             self._measurement_configured = False
             return -1
 
         # check valid measurement type
-        if measConf_str not in self.temp_configs_dict:
+        if measConf_str not in self.conf_measurement_dict:
             self._measurement_configured = False
             raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
-
+            
         # reset device
-        self.cmd = '*RST'
-        self.dmm.write(self.cmd)
+        self.cmd = '*RST\n'
+        self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
         
-        # select temperature measurement
-        self.cmd = "FUNC 'TEMP'"
-        self.dmm.write(self.cmd)
+        # get device into remote mode
+        self.cmd = "SYST:REM\n"
+        self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
         
-        # use parameters for RTD (PT100, PT1000, 2-wire or 4-wire)
-        if (self.temp_configs_dict[measConf_str][0] == 'RTD' 
-            or self.temp_configs_dict[measConf_str][0] == 'FRTD'):
-            self.cmd = "TEMP:TRAN:TYPE %s" %self.temp_configs_dict[measConf_str][0]
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-            
-            # configure R_0 for RTD or FRTD
-            self.cmd = "TEMP:TRAN:%s:RES %s" %(self.temp_configs_dict[measConf_str][0], self.temp_configs_dict[measConf_str][1])
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-        
-        # use parameters for thermocouple
-        elif self.temp_configs_dict[measConf_str][0] == 'TC':
-            # configure measurement with thermocouple probe and given type (e.g. K, J, R)
-            self.cmd = "CONF:TEMP %s,%s" %(self.temp_configs_dict[measConf_str][0], self.temp_configs_dict[measConf_str][1])
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-            
-            # configure reference junction temperature to internal (INT) or external (FIX)
-            self.cmd = "TEMP:TRAN:%s:RJUN:TYPE %s" %(self.temp_configs_dict[measConf_str][0], self.temp_configs_dict[measConf_str][2])
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-
-            # set reference junction temperature
-            if self.temp_configs_dict[measConf_str][2] == 'FIX':
-                self.cmd = "TEMP:TRAN:%s:RJUN %s" %(self.temp_configs_dict[measConf_str][0], ref_temp)
-                self.dmm.write(self.cmd)
-                time.sleep(self._delay)
-            
-        # use parameters for thermistor (NTC with 5 or 10 kOhm, 2-wire or 4-wire)
-        elif (self.temp_configs_dict[measConf_str][0] == 'THER' 
-            or self.temp_configs_dict[measConf_str][0] == 'FTH'):
-            self.cmd = "CONF:TEMP %s" %self.temp_configs_dict[measConf_str][0]
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-            
-            # configure R_0 for thermistor probe (NTC with 5 or 10 kOhm)
-            self.cmd = "TEMP:TRAN:%s:TYPE %s" %(self.temp_configs_dict[measConf_str][0], self.temp_configs_dict[measConf_str][1])
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-
-        # select unit °C to be used for all temperature measurements
-        self.cmd = 'UNIT:TEMP C'
-        self.dmm.write(self.cmd)
+        self.cmd = "%s\n" %self.conf_measurement_dict[measConf_str]
+        self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
         
         self._measurement_configured = True
         
         self._dict_dmm_measurement = {}
-        self._dict_dmm_measurement['temperature_value'] = 0
-        self._dict_dmm_measurement['temperature_unit'] = '°C'
-
-    # define a CONFigure RESistor MEASUREment function
-    def confResMeasure(self, measConf_str):
-        if (self.status != "Connected"):
-            print("Device is not connected")
-            self._measurement_configured = False
-            return -1
-
-        # check valid measurement type
-        if measConf_str not in self.res_configs_dict:
-            self._measurement_configured = False
-            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
-            
-        # reset device
-        self.cmd = '*RST'
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self.cmd = "CONF:%s AUTO" %self.res_configs_dict[measConf_str]
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self._measurement_configured = True
-        
-        self._dict_dmm_measurement = {}
-        self._dict_dmm_measurement['resistance_value'] = 0
-        self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
-        
-    # define a CONFigure VOLTage MEASUREment function
-    def confVoltMeasure(self, measConf_str):
-        if (self.status != "Connected"):
-            print("Device is not connected")
-            self._measurement_configured = False
-            self._measType = "DC"
-            return -1
-
-        # check valid measurement type
-        if measConf_str not in self.volt_configs_dict:
-            self._measurement_configured = False
-            self._measType = "DC"
-            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
-            
-        # reset device
-        self.cmd = '*RST'
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self.cmd = "CONF:VOLT:%s AUTO" %self.volt_configs_dict[measConf_str]
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        if measConf_str == "00_AC":
-            self.cmd = "VOLT:AC:SEC 'FREQ'"
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-            self._measType = "AC"
-        
-        self._measurement_configured = True
-        
-        self._dict_dmm_measurement = {}
-        self._dict_dmm_measurement['voltage_value'] = 0
-        self._dict_dmm_measurement['voltage_unit'] = 'V DC'
-        
-        if self._measType == "AC":
+        if (measConf_str == '00_RES') or (measConf_str == '01_FRES'):
+            self._dict_dmm_measurement['resistance_value'] = 0
+            self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
+            self._secondary_display = None # secondary display is NOT used
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(self._sock_timeout)
+        elif (measConf_str == '02_RTD') or (measConf_str == '03_FRTD'):
+            self._dict_dmm_measurement['temperature_value'] = 0
+            self._dict_dmm_measurement['temperature_unit'] = '°C'
+            self._secondary_display = "TEMP" # secondary display is used
+            self._dict_dmm_measurement['resistance_value'] = 0
+            self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(0.8)
+        elif measConf_str == '04_VOLT_AC':
+            self._dict_dmm_measurement['voltage_value'] = 0
             self._dict_dmm_measurement['voltage_unit'] = 'V AC'
+            self._secondary_display = "AC" # secondary display is used
             self._dict_dmm_measurement['frequency_value'] = 0
             self._dict_dmm_measurement['frequency_unit'] = 'Hz'
-        
-    # define a CONFigure CURRent MEASUREment function
-    def confCurrMeasure(self, measConf_str):
-        if (self.status != "Connected"):
-            print("Device is not connected")
-            self._measurement_configured = False
-            self._measType = "DC"
-            return -1
-
-        # check valid measurement type
-        if measConf_str not in self.curr_configs_dict:
-            self._measurement_configured = False
-            self._measType = "DC"
-            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
-            
-        # reset device
-        self.cmd = '*RST'
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self.cmd = "CONF:CURR:%s AUTO" %self.curr_configs_dict[measConf_str]
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        if measConf_str == "00_AC":
-            self.cmd = "CURR:AC:SEC 'FREQ'"
-            self.dmm.write(self.cmd)
-            time.sleep(self._delay)
-            self._measType = "AC"
-        
-        self._measurement_configured = True
-        
-        self._dict_dmm_measurement = {}
-        self._dict_dmm_measurement['current_value'] = 0
-        self._dict_dmm_measurement['current_unit'] = 'A DC'
-        
-        if self._measType == "AC":
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(1.0)
+        elif measConf_str == '05_VOLT_DC':
+            self._dict_dmm_measurement['voltage_value'] = 0
+            self._dict_dmm_measurement['voltage_unit'] = 'V DC'
+            self._secondary_display = None # secondary display is NOT used
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(self._sock_timeout)
+        elif measConf_str == '06_CURR_AC':
+            self._dict_dmm_measurement['current_value'] = 0
             self._dict_dmm_measurement['current_unit'] = 'A AC'
+            self._secondary_display = "AC" # secondary display is used
             self._dict_dmm_measurement['frequency_value'] = 0
             self._dict_dmm_measurement['frequency_unit'] = 'Hz'
-        
-    # define a CONFigure CAPacitancy and CONTinuity MEASUREment function
-    def confCapContMeasure(self, measConf_str):
-        if (self.status != "Connected"):
-            print("Device is not connected")
-            self._measurement_configured = False
-            return -1
-
-        # check valid measurement type
-        if measConf_str not in self.cap_cont_configs_dict:
-            self._measurement_configured = False
-            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
-            
-        # reset device
-        self.cmd = '*RST'
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self.cmd = "CONF:%s" %self.cap_cont_configs_dict[measConf_str]
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
-        
-        self._measurement_configured = True
-        
-        self._dict_dmm_measurement = {}
-        if measConf_str == '00_CAP':
-            self._dict_dmm_measurement['capacitancy_value'] = 0
-            self._dict_dmm_measurement['capacitancy_unit'] = 'F'
-        elif measConf_str == '01_CONT':
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(0.8)
+        elif measConf_str == '07_CURR_DC':
+            self._dict_dmm_measurement['current_value'] = 0
+            self._dict_dmm_measurement['current_unit'] = 'A DC'
+            self._secondary_display = None # secondary display is NOT used
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(1.0)
+        elif measConf_str == '08_CONT':
             self._dict_dmm_measurement['continuity_value'] = 0
             self._dict_dmm_measurement['continuity_unit'] = 'Ohm'
+            self._secondary_display = None # secondary display is NOT used
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(self._sock_timeout)
+        elif measConf_str == '09_CAP':
+            self._dict_dmm_measurement['capacitancy_value'] = 0
+            self._dict_dmm_measurement['capacitancy_unit'] = 'F'
+            self._secondary_display = None # secondary display is NOT used
+            # set timeout on blocking socket operations in [s]
+            self.dmm_sock.settimeout(2.0)
         
     # define a GET CONFIG function
     def getConfig(self):
@@ -360,9 +214,18 @@ class Fluke_8846A():
             print("Measurement is not configured")
             return -1
         
+        # clear input buffer before reading
+        self._clearInputBuffer()
+        
         # get current measurement configuration
-        self.cmd = 'CONF?'
-        self.ret_val = self.dmm.query(self.cmd)
+        self.cmd = 'CONF?\n'
+        self.dmm_sock.sendall(self.cmd.encode('utf-8'))
+        time.sleep(self._delay)
+        
+        # read answer with buffer size of 64 bytes
+        self.ret_val = self.dmm_sock.recv(64)
+        # strip whitespaces and newline characters from string
+        self.ret_val = self.ret_val.decode().strip()
         
         return self.ret_val
         
@@ -375,29 +238,50 @@ class Fluke_8846A():
         if not self._measurement_configured:
             print("Measurement is not configured")
             return -1
-            
-        # retrieve 1 measurement sample and read it back
-        self.cmd = 'SAMP:COUN 1'
-        self.dmm.write(self.cmd)
-        time.sleep(self._delay)
         
-        self.cmd = 'READ?'
-        self.ret_val = self.dmm.query(self.cmd)
-        self.ret_val = float(self.ret_val)
-        #time.sleep(self._delay)
+        # clear input buffer before reading
+        self._clearInputBuffer()
         
-        # write value at the primary value key
-        self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
-        self._dict_dmm_measurement[self.prim_val_key] = self.ret_val
-        
-        if self._measType == "AC":
-            # retrieve data from secondary display
-            self.cmd = 'DATA2?'
-            # wait some time before reading data from secondary display
-            time.sleep(0.15)
-            self.ret_val = self.dmm.query(self.cmd)
-            self.ret_val = float(self.ret_val)
+        if (self._secondary_display == "TEMP") or (self._secondary_display == "AC"):
+            # wait some time before reading data from primary and secondary display
             time.sleep(self._delay)
-            self._dict_dmm_measurement['frequency_value'] = self.ret_val
+            self.cmd = 'READ?; FETCH2?\n'
+            self.dmm_sock.sendall(self.cmd.encode('utf-8'))
+            time.sleep(self._delay)
+            # read answer with buffer size of 64 bytes
+            self.ret_val = self.dmm_sock.recv(64)
+            
+            # strip whitespaces and newline characters from string and cast to float
+            self.ret_val_list = self.ret_val.decode().strip().split(';')
+            print(self.ret_val_list)
+            # cast list elements to float
+            for self._idx, self._val in enumerate(self.ret_val_list):
+                self.ret_val_list[self._idx] = float(self.ret_val_list[self._idx])
+            
+            # write value at the primary value key
+            self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
+            self._dict_dmm_measurement[self.prim_val_key] = self.ret_val_list[0]
 
+            if self._secondary_display == "TEMP":
+                self._dict_dmm_measurement['resistance_value'] = self.ret_val_list[1]
+            elif self._secondary_display == "AC":
+                self._dict_dmm_measurement['frequency_value'] = self.ret_val_list[1]
+        
+        elif self._secondary_display == None:
+            # wait some time before reading data from primary display
+            time.sleep(self._delay)
+            self.cmd = 'READ?\n'
+            self.dmm_sock.sendall(self.cmd.encode('utf-8'))
+            time.sleep(self._delay)
+            # read answer with buffer size of 64 bytes
+            self.ret_val = self.dmm_sock.recv(64)
+            
+            # strip whitespaces and newline characters from string and cast to float
+            self.ret_val = self.ret_val.decode().strip()
+            self.ret_val = float(self.ret_val)
+            
+            # write value at the primary value key
+            self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
+            self._dict_dmm_measurement[self.prim_val_key] = self.ret_val
+        
         return self._dict_dmm_measurement

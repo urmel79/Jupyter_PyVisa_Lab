@@ -385,7 +385,7 @@ class PyVisa_Keysight_34465A():
             time.sleep(0.15)
             self.ret_val = self.dmm.query(self.cmd)
             self.ret_val = float(self.ret_val)
-            time.sleep(self._delay)
+            #time.sleep(self._delay)
             self._dict_dmm_measurement['frequency_value'] = self.ret_val
 
         return self._dict_dmm_measurement
