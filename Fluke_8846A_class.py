@@ -19,8 +19,8 @@ class Fluke_8846A():
         
         self.conf_measurement_dict = {  "00_RES":           'CONF:RES DEF',                     # resistor 2-wire
                                         "01_FRES":          'CONF:FRES DEF',                    # resistor 4-wire
-                                        "02_RTD":           'CONF:RTD DEF',                     # PT100, 2-wire,
-                                        "03_FRTD":          'CONF:FRTD DEF',                    # PT100, 4-wire,
+                                        "02_RTD":           'CONF:TEMP:RTD',                    # PT100, 2-wire,
+                                        "03_FRTD":          'CONF:TEMP:FRTD',                   # PT100, 4-wire,
                                         "04_RTD_RES":       'FUNC1 "TEMP:RTD"; FUNC2 "RES"',    # PT100, 2-wire, resistor 2-wire (secondary display)
                                         "05_FRTD_RES":      'FUNC1 "TEMP:FRTD"; FUNC2 "FRES"',  # PT100, 4-wire, resistor 4-wire (secondary display)
                                         "06_VOLT_AC":       'CONF:VOLT:AC DEF',                 # voltage AC
