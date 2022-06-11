@@ -13,24 +13,28 @@ class Fluke_8846A():
         self._ip = tcp_ip
         self._port = tcp_port
         self._delay = 0.05 # delay for writing the commands in seconds (50 ms)
-        self._sock_timeout = 0.5 # timeout for reading TCP sockets in [s]
+        self._sock_timeout = 0.1 # timeout for reading TCP sockets in [s]
+        self._measurement_configuration = ''
         self._measurement_configured = False
-        self._secondary_display = None
         
-        self.conf_measurement_dict = {  "00_RES":     "CONF:RES DEF",       # resistor 2-wire
-                                        "01_FRES":    "CONF:FRES DEF",      # resistor 4-wire
-                                        "02_RTD":     'FUNC1 "TEMP:RTD"; FUNC2 "RES"',   # PT100, 2-wire, resistor 2-wire (secondary display)
-                                        "03_FRTD":    'FUNC1 "TEMP:FRTD"; FUNC2 "FRES"', # PT100, 4-wire, resistor 4-wire (secondary display)
-                                        "04_VOLT_AC": 'FUNC1 "VOLT:AC"; FUNC2 "FREQ"',   # voltage AC, frequency (secondary display)
-                                        "05_VOLT_DC": "CONF:VOLT:DC DEF",   # voltage DC
-                                        "06_CURR_AC": 'FUNC1 "CURR:AC"; FUNC2 "FREQ"',   # current AC, frequency (secondary display)
-                                        "07_CURR_DC": "CONF:CURR:DC DEF",   # current DC
-                                        "08_CONT":    "CONF:CONT",          # continuity
-                                        "09_CAP":     "CONF:CAP DEF"        # capacitance
+        self.conf_measurement_dict = {  "00_RES":           'CONF:RES DEF',                     # resistor 2-wire
+                                        "01_FRES":          'CONF:FRES DEF',                    # resistor 4-wire
+                                        "02_RTD":           'CONF:RTD DEF',                     # PT100, 2-wire,
+                                        "03_FRTD":          'CONF:FRTD DEF',                    # PT100, 4-wire,
+                                        "04_RTD_RES":       'FUNC1 "TEMP:RTD"; FUNC2 "RES"',    # PT100, 2-wire, resistor 2-wire (secondary display)
+                                        "05_FRTD_RES":      'FUNC1 "TEMP:FRTD"; FUNC2 "FRES"',  # PT100, 4-wire, resistor 4-wire (secondary display)
+                                        "06_VOLT_AC":       'CONF:VOLT:AC DEF',                 # voltage AC
+                                        "07_VOLT_AC_FREQ":  'FUNC1 "VOLT:AC"; FUNC2 "FREQ"',    # voltage AC, frequency (secondary display)
+                                        "08_VOLT_DC":       'CONF:VOLT:DC DEF',                 # voltage DC
+                                        "09_CURR_AC":       'CONF:CURR:AC DEF',                 # current AC
+                                        "10_CURR_AC_FREQ":  'FUNC1 "CURR:AC"; FUNC2 "FREQ"',    # current AC, frequency (secondary display)
+                                        "11_CURR_DC":       'CONF:CURR:DC DEF',                 # current DC
+                                        "12_CONT":          'CONF:CONT',                        # continuity
+                                        "13_CAP":           'CONF:CAP DEF'                      # capacitance
                                      }
         
         try:
-            if self._ip == [] or self._port == []:
+            if (self._ip == [] or self._port == []):
                 self.status = "No IP address or port provided"
             else:
                 self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,12 +63,42 @@ class Fluke_8846A():
                 pass
         except:
             pass
+
+    # define an internal READ SOCKET function
+    def _readSocket(self, int_bytes):
+        self.dmm_sock.settimeout(0.01)
+
+        while True:
+            try:
+                self.ret_val = self.dmm_sock.recv(int_bytes)
+            except socket.timeout as e:
+                self._err = e.args[0]
+                # this next if/else is a bit redundant, but illustrates how the
+                # timeout exception is setup
+                if self._err == 'timed out':
+                    time.sleep(0.2)
+                    # print('recv() timed out, retry later') # output only for debugging
+                    continue
+                else:
+                    print(e)
+                    return -1
+            except socket.error as e:
+                # Something else happened, handle error, exit funktion, etc.
+                print(e)
+                return -1
+            else:
+                if len(self.ret_val) == 0:
+                    print('orderly shutdown on server end')
+                    return -1
+                else:
+                    # got a message: return it :)
+                    return self.ret_val
     
     # define a OPEN CONNECTION function
     def openConnection(self, tcp_ip, tcp_port):
         try:
             if self.status == "Disconnected":
-                if tcp_ip == [] or tcp_port == []:
+                if (tcp_ip == [] or tcp_port == []):
                     self.status = "No IP address or port provided"
                 else:
                     self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -112,7 +146,8 @@ class Fluke_8846A():
         time.sleep(self._delay)
         
         # read answer with buffer size of 64 bytes
-        self.ret_val = self.dmm_sock.recv(64)
+        self.ret_val = self._readSocket(int_bytes=64)
+
         # strip whitespaces and newline characters from string
         self.ret_val = self.ret_val.decode().strip()
         # split string into list
@@ -127,10 +162,12 @@ class Fluke_8846A():
             self._measurement_configured = False
             return -1
 
+        self._measurement_configuration = measConf_str
+        
         # check valid measurement type
-        if measConf_str not in self.conf_measurement_dict:
+        if self._measurement_configuration not in self.conf_measurement_dict:
             self._measurement_configured = False
-            raise TypeError("Configuration {} is NOT a valid one".format(measConf_str))
+            raise TypeError("Configuration {} is NOT a valid one".format(self._measurement_configuration))
             
         # reset device
         self.cmd = '*RST\n'
@@ -142,67 +179,77 @@ class Fluke_8846A():
         self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
         
-        self.cmd = "%s\n" %self.conf_measurement_dict[measConf_str]
+        self.cmd = "%s\n" %self.conf_measurement_dict[self._measurement_configuration]
         self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
         
         self._measurement_configured = True
         
         self._dict_dmm_measurement = {}
-        if (measConf_str == '00_RES') or (measConf_str == '01_FRES'):
+
+        if ((self._measurement_configuration == '00_RES') or
+            (self._measurement_configuration == '01_FRES')):
+                
             self._dict_dmm_measurement['resistance_value'] = 0
             self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
-            self._secondary_display = None # secondary display is NOT used
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(self._sock_timeout)
-        elif (measConf_str == '02_RTD') or (measConf_str == '03_FRTD'):
+        
+        elif ((self._measurement_configuration == '02_RTD') or
+            (self._measurement_configuration == '03_FRTD')):
+
             self._dict_dmm_measurement['temperature_value'] = 0
             self._dict_dmm_measurement['temperature_unit'] = '°C'
-            self._secondary_display = "TEMP" # secondary display is used
+
+        elif ((self._measurement_configuration == '04_RTD_RES') or
+            (self._measurement_configuration == '05_FRTD_RES')):
+                
+            self._dict_dmm_measurement['temperature_value'] = 0
+            self._dict_dmm_measurement['temperature_unit'] = '°C'
             self._dict_dmm_measurement['resistance_value'] = 0
             self._dict_dmm_measurement['resistance_unit'] = 'Ohm'
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(0.8)
-        elif measConf_str == '04_VOLT_AC':
+        
+        elif (self._measurement_configuration == '06_VOLT_AC'):
+
             self._dict_dmm_measurement['voltage_value'] = 0
             self._dict_dmm_measurement['voltage_unit'] = 'V AC'
-            self._secondary_display = "AC" # secondary display is used
+
+        elif self._measurement_configuration == '07_VOLT_AC_FREQ':
+            
+            self._dict_dmm_measurement['voltage_value'] = 0
+            self._dict_dmm_measurement['voltage_unit'] = 'V AC'
             self._dict_dmm_measurement['frequency_value'] = 0
             self._dict_dmm_measurement['frequency_unit'] = 'Hz'
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(1.0)
-        elif measConf_str == '05_VOLT_DC':
+        
+        elif self._measurement_configuration == '08_VOLT_DC':
+            
             self._dict_dmm_measurement['voltage_value'] = 0
             self._dict_dmm_measurement['voltage_unit'] = 'V DC'
-            self._secondary_display = None # secondary display is NOT used
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(self._sock_timeout)
-        elif measConf_str == '06_CURR_AC':
+
+        elif (self._measurement_configuration == '09_CURR_AC'):
+
             self._dict_dmm_measurement['current_value'] = 0
             self._dict_dmm_measurement['current_unit'] = 'A AC'
-            self._secondary_display = "AC" # secondary display is used
+        
+        elif self._measurement_configuration == '10_CURR_AC_FREQ':
+            
+            self._dict_dmm_measurement['current_value'] = 0
+            self._dict_dmm_measurement['current_unit'] = 'A AC'
             self._dict_dmm_measurement['frequency_value'] = 0
             self._dict_dmm_measurement['frequency_unit'] = 'Hz'
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(0.8)
-        elif measConf_str == '07_CURR_DC':
+        
+        elif self._measurement_configuration == '11_CURR_DC':
+            
             self._dict_dmm_measurement['current_value'] = 0
             self._dict_dmm_measurement['current_unit'] = 'A DC'
-            self._secondary_display = None # secondary display is NOT used
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(1.0)
-        elif measConf_str == '08_CONT':
+        
+        elif self._measurement_configuration == '12_CONT':
+            
             self._dict_dmm_measurement['continuity_value'] = 0
             self._dict_dmm_measurement['continuity_unit'] = 'Ohm'
-            self._secondary_display = None # secondary display is NOT used
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(self._sock_timeout)
-        elif measConf_str == '09_CAP':
+        
+        elif self._measurement_configuration == '13_CAP':
+            
             self._dict_dmm_measurement['capacitancy_value'] = 0
             self._dict_dmm_measurement['capacitancy_unit'] = 'F'
-            self._secondary_display = None # secondary display is NOT used
-            # set timeout on blocking socket operations in [s]
-            self.dmm_sock.settimeout(2.0)
         
     # define a GET CONFIG function
     def getConfig(self):
@@ -221,9 +268,10 @@ class Fluke_8846A():
         self.cmd = 'CONF?\n'
         self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         time.sleep(self._delay)
-        
+
         # read answer with buffer size of 64 bytes
-        self.ret_val = self.dmm_sock.recv(64)
+        self.ret_val = self._readSocket(int_bytes=64)
+
         # strip whitespaces and newline characters from string
         self.ret_val = self.ret_val.decode().strip()
         
@@ -242,18 +290,23 @@ class Fluke_8846A():
         # clear input buffer before reading
         self._clearInputBuffer()
         
-        if (self._secondary_display == "TEMP") or (self._secondary_display == "AC"):
+        if ((self._measurement_configuration == '04_RTD_RES') or
+            (self._measurement_configuration == '05_FRTD_RES') or
+            (self._measurement_configuration == '07_VOLT_AC_FREQ') or
+            (self._measurement_configuration == '10_CURR_AC_FREQ')):
+
             # wait some time before reading data from primary and secondary display
             time.sleep(self._delay)
             self.cmd = 'READ?; FETCH2?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)
+
             # read answer with buffer size of 64 bytes
-            self.ret_val = self.dmm_sock.recv(64)
+            self.ret_val = self._readSocket(int_bytes=64)
             
             # strip whitespaces and newline characters from string and cast to float
             self.ret_val_list = self.ret_val.decode().strip().split(';')
-            print(self.ret_val_list)
+            # print(self.ret_val_list)
             # cast list elements to float
             for self._idx, self._val in enumerate(self.ret_val_list):
                 self.ret_val_list[self._idx] = float(self.ret_val_list[self._idx])
@@ -262,19 +315,24 @@ class Fluke_8846A():
             self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
             self._dict_dmm_measurement[self.prim_val_key] = self.ret_val_list[0]
 
-            if self._secondary_display == "TEMP":
+            if ((self._measurement_configuration == '04_RTD_RES') or
+                (self._measurement_configuration == '05_FRTD_RES')):
+
                 self._dict_dmm_measurement['resistance_value'] = self.ret_val_list[1]
-            elif self._secondary_display == "AC":
+
+            elif ((self._measurement_configuration == '07_VOLT_AC_FREQ') or
+                (self._measurement_configuration == '10_CURR_AC_FREQ')):
+
                 self._dict_dmm_measurement['frequency_value'] = self.ret_val_list[1]
         
-        elif self._secondary_display == None:
+        else:
             # wait some time before reading data from primary display
             time.sleep(self._delay)
             self.cmd = 'READ?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)
             # read answer with buffer size of 64 bytes
-            self.ret_val = self.dmm_sock.recv(64)
+            self.ret_val = self._readSocket(int_bytes=64)
             
             # strip whitespaces and newline characters from string and cast to float
             self.ret_val = self.ret_val.decode().strip()
