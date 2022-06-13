@@ -296,7 +296,7 @@ class Fluke_8846A():
             (self._measurement_configuration == '10_CURR_AC_FREQ')):
 
             # wait some time before reading data from primary and secondary display
-            time.sleep(self._delay)
+            # time.sleep(self._delay)
             self.cmd = 'READ?; FETCH2?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)
@@ -327,7 +327,7 @@ class Fluke_8846A():
         
         else:
             # wait some time before reading data from primary display
-            time.sleep(self._delay)
+            # time.sleep(self._delay)
             self.cmd = 'READ?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)

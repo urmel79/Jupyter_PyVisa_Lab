@@ -192,7 +192,7 @@ class PyVisa_Keysight_34465A():
         # select unit °C to be used for all temperature measurements
         self.cmd = 'UNIT:TEMP C'
         self.dmm.write(self.cmd)
-        time.sleep(self._delay)
+        # time.sleep(self._delay)
         
         self._measurement_configured = True
         
@@ -219,7 +219,7 @@ class PyVisa_Keysight_34465A():
         
         self.cmd = "CONF:%s AUTO" %self.res_configs_dict[measConf_str]
         self.dmm.write(self.cmd)
-        time.sleep(self._delay)
+        # time.sleep(self._delay)
         
         self._measurement_configured = True
         
@@ -253,7 +253,7 @@ class PyVisa_Keysight_34465A():
         if measConf_str == "00_AC":
             self.cmd = "VOLT:AC:SEC 'FREQ'"
             self.dmm.write(self.cmd)
-            time.sleep(self._delay)
+            # time.sleep(self._delay)
             self._measType = "AC"
         
         self._measurement_configured = True
@@ -293,7 +293,7 @@ class PyVisa_Keysight_34465A():
         if measConf_str == "00_AC":
             self.cmd = "CURR:AC:SEC 'FREQ'"
             self.dmm.write(self.cmd)
-            time.sleep(self._delay)
+            # time.sleep(self._delay)
             self._measType = "AC"
         
         self._measurement_configured = True
@@ -326,7 +326,7 @@ class PyVisa_Keysight_34465A():
         
         self.cmd = "CONF:%s" %self.cap_cont_configs_dict[measConf_str]
         self.dmm.write(self.cmd)
-        time.sleep(self._delay)
+        # time.sleep(self._delay)
         
         self._measurement_configured = True
         
