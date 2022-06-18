@@ -12,7 +12,8 @@ class Fluke_8846A():
     def __init__(self, tcp_ip, tcp_port):
         self._ip = tcp_ip
         self._port = tcp_port
-        self._delay = 0.05 # delay for writing the commands in seconds (50 ms)
+        self._delay = 0.005 # delay for writing the commands in seconds (5 ms)
+        self._bytes2read = 40
         self._sock_timeout = 0.1 # timeout for reading TCP sockets in [s]
         self._measurement_configuration = ''
         self._measurement_configured = False
@@ -57,8 +58,8 @@ class Fluke_8846A():
     # define an internal CLEAR INPUT BUFFER function
     def _clearInputBuffer(self):
         try:
-            # read answer with buffer size of 64 bytes and drop it
-            while self.dmm_sock.recv(64):
+            # read answer with buffer size of 40 bytes and drop it
+            while self.dmm_sock.recv(self._bytes2read):
                 #time.sleep(self._delay)
                 pass
         except:
@@ -76,7 +77,7 @@ class Fluke_8846A():
                 # this next if/else is a bit redundant, but illustrates how the
                 # timeout exception is setup
                 if self._err == 'timed out':
-                    time.sleep(0.2)
+                    time.sleep(0.3)
                     # print('recv() timed out, retry later') # output only for debugging
                     continue
                 else:
@@ -146,7 +147,7 @@ class Fluke_8846A():
         time.sleep(self._delay)
         
         # read answer with buffer size of 64 bytes
-        self.ret_val = self._readSocket(int_bytes=64)
+        self.ret_val = self._readSocket(int_bytes=self._bytes2read)
 
         # strip whitespaces and newline characters from string
         self.ret_val = self.ret_val.decode().strip()
@@ -270,7 +271,7 @@ class Fluke_8846A():
         time.sleep(self._delay)
 
         # read answer with buffer size of 64 bytes
-        self.ret_val = self._readSocket(int_bytes=64)
+        self.ret_val = self._readSocket(int_bytes=self._bytes2read)
 
         # strip whitespaces and newline characters from string
         self.ret_val = self.ret_val.decode().strip()
@@ -287,22 +288,20 @@ class Fluke_8846A():
             print("Measurement is not configured")
             return -1
         
-        # clear input buffer before reading
-        self._clearInputBuffer()
+        # # clear input buffer before reading
+        # self._clearInputBuffer()
         
         if ((self._measurement_configuration == '04_RTD_RES') or
             (self._measurement_configuration == '05_FRTD_RES') or
             (self._measurement_configuration == '07_VOLT_AC_FREQ') or
             (self._measurement_configuration == '10_CURR_AC_FREQ')):
 
-            # wait some time before reading data from primary and secondary display
-            # time.sleep(self._delay)
             self.cmd = 'READ?; FETCH2?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)
 
             # read answer with buffer size of 64 bytes
-            self.ret_val = self._readSocket(int_bytes=64)
+            self.ret_val = self._readSocket(int_bytes=self._bytes2read)
             
             # strip whitespaces and newline characters from string and cast to float
             self.ret_val_list = self.ret_val.decode().strip().split(';')
@@ -326,13 +325,11 @@ class Fluke_8846A():
                 self._dict_dmm_measurement['frequency_value'] = self.ret_val_list[1]
         
         else:
-            # wait some time before reading data from primary display
-            # time.sleep(self._delay)
             self.cmd = 'READ?\n'
             self.dmm_sock.sendall(self.cmd.encode('utf-8'))
             time.sleep(self._delay)
             # read answer with buffer size of 64 bytes
-            self.ret_val = self._readSocket(int_bytes=64)
+            self.ret_val = self._readSocket(int_bytes=self._bytes2read)
             
             # strip whitespaces and newline characters from string and cast to float
             self.ret_val = self.ret_val.decode().strip()
