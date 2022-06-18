@@ -13,7 +13,6 @@ class PyVisa_Fluke_8846A():
         self._ip = tcp_ip
         self._port = tcp_port
         self._delay = 0.05 # delay for writing the commands in seconds (50 ms)
-        # self._sock_timeout = 0.1 # timeout for reading TCP sockets in [s]
         self._measurement_configuration = ''
         self._measurement_configured = False
         
@@ -37,12 +36,6 @@ class PyVisa_Fluke_8846A():
             if (self._ip == [] or self._port == []):
                 self.status = "No IP address or port provided"
             else:
-                # self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                # self.dmm_sock.connect((self._ip, self._port))
-                
-                # # set timeout on blocking socket operations in [s]
-                # self.dmm_sock.settimeout(self._sock_timeout)
-
                 self.rm = pyvisa.ResourceManager('@py')
                 self.dmm_res = 'TCPIP0::%s::%s::SOCKET' % (self._ip, self._port)
                 self.dmm = self.rm.open_resource(self.dmm_res)
@@ -63,46 +56,6 @@ class PyVisa_Fluke_8846A():
             self.connected_with = 'Nothing'
             print("Something's went wrong while opening %s:%d. Exception is %s" % (self._ip, self._port, e))
     
-    # # define an internal CLEAR INPUT BUFFER function
-    # def _clearInputBuffer(self):
-    #     try:
-    #         # read answer with buffer size of 64 bytes and drop it
-    #         while self.dmm_sock.recv(64):
-    #             #time.sleep(self._delay)
-    #             pass
-    #     except:
-    #         pass
-
-    # # define an internal READ SOCKET function
-    # def _readSocket(self, int_bytes):
-    #     self.dmm_sock.settimeout(0.01)
-
-    #     while True:
-    #         try:
-    #             self.ret_val = self.dmm_sock.recv(int_bytes)
-    #         except socket.timeout as e:
-    #             self._err = e.args[0]
-    #             # this next if/else is a bit redundant, but illustrates how the
-    #             # timeout exception is setup
-    #             if self._err == 'timed out':
-    #                 time.sleep(0.2)
-    #                 # print('recv() timed out, retry later') # output only for debugging
-    #                 continue
-    #             else:
-    #                 print(e)
-    #                 return -1
-    #         except socket.error as e:
-    #             # Something else happened, handle error, exit funktion, etc.
-    #             print(e)
-    #             return -1
-    #         else:
-    #             if len(self.ret_val) == 0:
-    #                 print('orderly shutdown on server end')
-    #                 return -1
-    #             else:
-    #                 # got a message: return it :)
-    #                 return self.ret_val
-    
     # define a OPEN CONNECTION function
     def openConnection(self, tcp_ip, tcp_port):
         try:
@@ -110,12 +63,6 @@ class PyVisa_Fluke_8846A():
                 if (tcp_ip == [] or tcp_port == []):
                     self.status = "No IP address or port provided"
                 else:
-                    # self.dmm_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    # self.dmm_sock.connect((tcp_ip, tcp_port))
-                    
-                    # # set timeout on blocking socket operations in [s]
-                    # self.dmm_sock.settimeout(self._sock_timeout)
-
                     self.rm = pyvisa.ResourceManager('@py')
                     self.dmm_res = 'TCPIP0::%s::%s::SOCKET' % (self._ip, self._port)
                     self.dmm = self.rm.open_resource(self.dmm_res)
@@ -156,28 +103,15 @@ class PyVisa_Fluke_8846A():
             self._measurement_configured = False
             return -1
         
-        # # clear input buffer before reading
-        # self._clearInputBuffer()
-        
         # get current measurement configuration
         self.cmd = '*IDN?'
-        # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
-        # time.sleep(self._delay)
         
-        # # read answer with buffer size of 64 bytes
-        # self.ret_val = self._readSocket(int_bytes=64)
-
         self.ret_val = self.dmm.query(self.cmd)
         # strip whitespaces and newline characters from string
         self.ret_val = self.ret_val.strip()
         # split string into list
         self.ret_list = self.ret_val.split(',')
 
-        # # strip whitespaces and newline characters from string
-        # self.ret_val = self.ret_val.decode().strip()
-        # # split string into list
-        # self.ret_list = self.ret_val.split(',')
-        
         return self.ret_list
         
     # define a CONFigure MEASUREMENT function
@@ -196,18 +130,15 @@ class PyVisa_Fluke_8846A():
             
         # reset device
         self.cmd = '*RST'
-        # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
         # get device into remote mode
         self.cmd = "SYST:REM"
-        # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
         self.cmd = "%s" %self.conf_measurement_dict[self._measurement_configuration]
-        # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
         self.dmm.write(self.cmd)
         time.sleep(self._delay)
         
@@ -289,19 +220,8 @@ class PyVisa_Fluke_8846A():
             print("Measurement is not configured")
             return -1
         
-        # # clear input buffer before reading
-        # self._clearInputBuffer()
-        
         # get current measurement configuration
         self.cmd = 'CONF?'
-        # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
-        # time.sleep(self._delay)
-
-        # # read answer with buffer size of 64 bytes
-        # self.ret_val = self._readSocket(int_bytes=64)
-
-        # # strip whitespaces and newline characters from string
-        # self.ret_val = self.ret_val.decode().strip()
 
         self.ret_val = self.dmm.query(self.cmd)
         # strip whitespaces and newline characters from string
@@ -319,27 +239,17 @@ class PyVisa_Fluke_8846A():
             print("Measurement is not configured")
             return -1
         
-        # # clear input buffer before reading
-        # self._clearInputBuffer()
-        
         if ((self._measurement_configuration == '04_RTD_RES') or
             (self._measurement_configuration == '05_FRTD_RES') or
             (self._measurement_configuration == '07_VOLT_AC_FREQ') or
             (self._measurement_configuration == '10_CURR_AC_FREQ')):
 
             # # wait some time before reading data from primary and secondary display
-            # time.sleep(self._delay)
             self.cmd = 'READ?; FETCH2?'
-            # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
-            # time.sleep(self._delay)
-
-            # # read answer with buffer size of 64 bytes
-            # self.ret_val = self._readSocket(int_bytes=64)
 
             self.ret_val = self.dmm.query(self.cmd)
             
             # strip whitespaces and newline characters from string and cast to float
-            # self.ret_val_list = self.ret_val.decode().strip().split(';')
             self.ret_val_list = self.ret_val.strip().split(';')
             # print(self.ret_val_list)
 
@@ -363,17 +273,11 @@ class PyVisa_Fluke_8846A():
         
         else:
             # # wait some time before reading data from primary display
-            # time.sleep(self._delay)
             self.cmd = 'READ?'
-            # self.dmm_sock.sendall(self.cmd.encode('utf-8'))
-            # time.sleep(self._delay)
-            # # read answer with buffer size of 64 bytes
-            # self.ret_val = self._readSocket(int_bytes=64)
 
             self.ret_val = self.dmm.query(self.cmd)
             
             # strip whitespaces and newline characters from string and cast to float
-            # self.ret_val = self.ret_val.decode().strip()
             self.ret_val = self.ret_val.strip()
             self.ret_val = float(self.ret_val)
             
