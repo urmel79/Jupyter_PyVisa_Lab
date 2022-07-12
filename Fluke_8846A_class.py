@@ -68,8 +68,15 @@ class Fluke_8846A():
     # define an internal READ SOCKET function
     def _readSocket(self, int_bytes):
         self.dmm_sock.settimeout(0.01)
+        
+        # define a knock out counter to break while loop
+        self.knock_out_counter = 10
 
-        while True:
+        while self.knock_out_counter >= 0:
+            # decrease knock out counter
+            self.knock_out_counter -= 1
+            #print("Knock out counter: {}".format(self.knock_out_counter)) # output only for debugging
+            
             try:
                 self.ret_val = self.dmm_sock.recv(int_bytes)
             except socket.timeout as e:
@@ -78,7 +85,7 @@ class Fluke_8846A():
                 # timeout exception is setup
                 if self._err == 'timed out':
                     time.sleep(0.3)
-                    # print('recv() timed out, retry later') # output only for debugging
+                    #print('recv() timed out, retry later') # output only for debugging
                     continue
                 else:
                     print(e)
@@ -291,6 +298,8 @@ class Fluke_8846A():
         # # clear input buffer before reading
         # self._clearInputBuffer()
         
+        #print(self._measurement_configuration)
+        
         if ((self._measurement_configuration == '04_RTD_RES') or
             (self._measurement_configuration == '05_FRTD_RES') or
             (self._measurement_configuration == '07_VOLT_AC_FREQ') or
@@ -333,10 +342,16 @@ class Fluke_8846A():
             
             # strip whitespaces and newline characters from string and cast to float
             self.ret_val = self.ret_val.decode().strip()
-            self.ret_val = float(self.ret_val)
-            
-            # write value at the primary value key
-            self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
-            self._dict_dmm_measurement[self.prim_val_key] = self.ret_val
+            #print(self.ret_val)
+            if (self.ret_val != ''):
+                self.ret_val = float(self.ret_val)
+
+                # write value at the primary value key
+                self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
+                self._dict_dmm_measurement[self.prim_val_key] = self.ret_val
+            else:
+                # write value at the primary value key
+                self.prim_val_key = list(self._dict_dmm_measurement.keys())[0]
+                self._dict_dmm_measurement[self.prim_val_key] = 'NULL'
         
         return self._dict_dmm_measurement
