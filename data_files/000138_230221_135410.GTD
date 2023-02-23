@@ -22,7 +22,7 @@ Time Zone	540
 DST	On	March	SecondWeek	Sunday	2	November	FirstWeek	Sunday	2	-60
 Ch	0001	0001	0002	0002	0003	0003	0004	0004	0005	0005	0006	0006	0007	0007	0008	0008	0009	0009	0010	0010	Message
 Ch Id																					 
-Tag	Klemme Schließer 1	Klemme Schließer 1	Klemme Schließer 2	Klemme Schließer 2	Kabeleinführung innen	Kabeleinführung innen	Griffstück außen	Griffstück außen	Gahäuse außen	Gahäuse außen	Raumtemperatur 1	Raumtemperatur 1	Raumtemperatur 2	Raumtemperatur 2							 
+Tag	Klemme Schließer 1	Klemme Schließer 1	Klemme Schließer 2	Klemme Schließer 2	Kabeleinführung innen	Kabeleinführung innen	Griffstück außen	Griffstück außen	Gehäuse außen	Gehäuse außen	Raumtemperatur 1	Raumtemperatur 1	Raumtemperatur 2	Raumtemperatur 2							 
 Unit	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	°C	 
 Type	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Meas	Message
 Kind	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Min	Max	Count
